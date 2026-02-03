@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Gamble Edition</title>
+    <title>Capybara Clicker: Ultimate Gamble Edition</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -10,7 +10,7 @@
         .stat-box { display: inline-block; background: rgba(255,255,255,0.8); padding: 10px 20px; border: 3px solid #5d4037; border-radius: 15px; font-size: 24px; color: #5d4037; font-weight: bold; margin: 0 10px; min-width: 150px; }
         #phase-msg { font-size: 45px; color: #fff; font-weight: bold; text-shadow: 3px 3px 0 #5d4037; margin-top: 20px; }
         #menu { position: relative; z-index: 20; text-align: center; background: white; padding: 40px; border: 6px solid #8d6e63; border-radius: 30px; margin: auto; box-shadow: 0 10px 0 #5d4037; max-width: 500px; }
-        button { padding: 20px 50px; font-size: 22px; cursor: pointer; border-radius: 15px; font-weight: bold; margin: 10px; border: none; transition: 0.2s; }
+        button { padding: 20px 40px; font-size: 22px; cursor: pointer; border-radius: 15px; font-weight: bold; margin: 10px; border: none; transition: 0.2s; }
         #playBtn { background: #4CAF50; color: white; box-shadow: 0 6px 0 #2E7D32; font-size: 28px; }
         #restartBtn { background: #f1c40f; color: #000; box-shadow: 0 5px 0 #b7950b; display: none; }
         .gamble-btn { background: #e74c3c; color: white; box-shadow: 0 6px 0 #c0392b; }
@@ -19,7 +19,11 @@
         button:active { transform: translateY(3px); box-shadow: none; }
         .grass { position: absolute; bottom: 0; width: 100%; height: 100px; background: #7CFC00; z-index: 0; border-top: 10px solid #556B2F; }
         #party-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: none; }
-        #gamble-screen { display: none; }
+        .shake { animation: shake 0.2s; }
+        @keyframes shake { 0% { left: -8px; } 50% { left: 8px; } 100% { left: 0px; } }
+        #finalScoreText { font-size: 3em; color: #5d4037; margin: 10px 0; }
+        #weapon-status { font-size: 18px; color: #e67e22; font-weight: bold; margin-top: 5px; }
+        .gamble-score { font-size: 2.5em; color: #e67e22; font-weight: bold; margin: 15px 0; }
     </style>
 </head>
 <body style="display: flex; justify-content: center; align-items: center;">
@@ -30,26 +34,27 @@
             <div class="stat-box">PISTEET: <span id="score">0</span></div>
             <div class="stat-box">AIKA: <span id="timer">45</span>s</div>
             <div id="phase-msg"></div>
-            <div id="weapon-status" style="color:#e67e22; font-weight:bold;"></div>
+            <div id="weapon-status"></div>
         </div>
 
         <div id="menu">
-            <h1 id="main-title" style="color: #8d6e63; font-size: 2.5em; margin: 0;">CAPY CLICKER</h1>
+            <h1 id="main-title" style="color: #8d6e63; font-size: 2.5em; margin: 0;">CAPYBARA CLICKER</h1>
             
             <div id="instructions">
-                <p>Kerää kertoimia ja aseita. Lopussa voit <b>TUPLATA</b> kaiken!</p>
+                <p>1. Kerää kertoimia ja <b>ASEITA</b> (⚡, 🥊)!<br>2. <b>RÄMPYTÄ CAPYBARAA</b> lopussa!<br>3. Uhkapelaa lopuksi pisteilläsi!</p>
                 <button id="playBtn">ALOITA!</button>
             </div>
 
-            <div id="gamble-screen">
-                <h2>KRUUNA VAI KLAAVA?</h2>
-                <p>Uskallatko tuplata pisteesi vai voitko hävitä puolet?</p>
+            <div id="gamble-screen" style="display:none;">
+                <h2>USKALLATKO TUPLATA?</h2>
+                <div class="gamble-score" id="gamble-current-score">0</div>
+                <p>Kruuna vai Klaava? Voit voittaa x2 tai hävitä puolet.</p>
                 <button class="gamble-btn" onclick="handleGamble()">TUPLAA TAI KUITTAA (50/50)</button>
                 <button class="safe-btn" onclick="showResults()">OTA PISTEET TALTEEN</button>
             </div>
 
             <div id="statsDisplay" style="display:none;">
-                <h2 id="finalScoreText" style="font-size: 3em; margin: 10px;">0</h2>
+                <h2 id="finalScoreText">0</h2>
                 <p id="rewardText" style="color: #4CAF50; font-size: 22px; font-weight: bold;"></p>
                 <button id="restartBtn">PELAA UUDELLEEN</button>
             </div>
@@ -77,10 +82,11 @@
         const restartBtn = document.getElementById("restartBtn");
         const menu = document.getElementById("menu");
         const music = document.getElementById("bgMusic");
+        const gambleScoreDisplay = document.getElementById("gamble-current-score");
 
         let width, height, score, multiplier, timeLeft, gameActive, items, lastTime, magnetTime = 0, nyanMode = 0;
         let capySize = 1, mouseX = 0, mouseY = 0, goldenCapy = null, activeWeapon = null;
-        let goldenCapySpawns = [38, 25, 15];
+        let goldenCapySpawns = [38, 25, 15]; 
 
         function resize() {
             width = canvas.width = partyCanvas.width = window.innerWidth;
@@ -109,8 +115,8 @@
                 else if (this.type === 'gold') multiplier += 2.0;
                 else if (this.type === 'magnet') magnetTime = 6;
                 else if (this.type === 'mine') { multiplier = Math.max(1.0, multiplier - 5.0); container.classList.add("shake"); setTimeout(()=>container.classList.remove("shake"), 200); }
-                else if (this.type === 'mixer') { activeWeapon = 'mixer'; weaponEl.innerText = "⚡ SÄHKÖVATKAIN AKTIIVINEN"; }
-                else if (this.type === 'glove') { activeWeapon = 'glove'; weaponEl.innerText = "🥊 KULTAINEN HANSKA AKTIIVINEN"; }
+                else if (this.type === 'mixer') { activeWeapon = 'mixer'; weaponEl.innerText = "⚡ SÄHKÖVATKAIN (3x Pisteet!)"; }
+                else if (this.type === 'glove') { activeWeapon = 'glove'; weaponEl.innerText = "🥊 KULTAINEN HANSKA (2x Kerroin!)"; }
                 multEl.innerText = multiplier.toFixed(1);
             }
         }
@@ -146,6 +152,10 @@
 
         function draw() {
             ctx.clearRect(0, 0, width, height);
+            if (nyanMode > 0) {
+                ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
+                for(let i=0; i<10; i++) { let lx = (Math.random() * width); ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, height); ctx.stroke(); }
+            }
             if (timeLeft > 10) {
                 items.forEach(it => it.draw());
                 if (goldenCapy) {
@@ -167,23 +177,24 @@
             menu.style.display = "block";
             document.getElementById("instructions").style.display = "none";
             document.getElementById("gamble-screen").style.display = "block";
-            phaseEl.innerText = "USKALLATKO TUPLATA?";
+            gambleScoreDisplay.innerText = Math.floor(score);
+            phaseEl.innerText = "TUPLAA TAI KUITTAA?";
         }
 
-        function handleGamble() {
+        window.handleGamble = function() {
             const win = Math.random() > 0.5;
-            if (win) { score *= 2; alert("VOITIT! Pisteet tuplattu!"); }
-            else { score /= 2; alert("HÄVISIT! Menetit puolet pisteistäsi."); }
+            if (win) { score *= 2; alert("Kruuna! Pisteet tuplattu!"); }
+            else { score /= 2; alert("Klaava! Menetit puolet pisteistäsi."); }
             showResults();
         }
 
-        function showResults() {
+        window.showResults = function() {
             document.getElementById("gamble-screen").style.display = "none";
             document.getElementById("statsDisplay").style.display = "block";
             document.getElementById("finalScoreText").innerText = Math.floor(score);
             if (score >= 100000) { document.getElementById("main-title").innerText = "✨ ULTIMATE CAPY GOD ✨"; startParty(); }
             else { document.getElementById("rewardText").innerText = "Tavoite: 100 000 pistettä!"; }
-            setTimeout(() => { restartBtn.style.display = "inline-block"; }, 1000);
+            setTimeout(() => { restartBtn.style.display = "inline-block"; }, 1500);
         }
 
         function startParty() {
@@ -202,7 +213,10 @@
             } else {
                 let d = Math.hypot(e.clientX - width/2, e.clientY - height/2);
                 if (d < 220 * capySize) {
-                    let val = multiplier; if (activeWeapon === 'mixer') score += val * 3; else if (activeWeapon === 'glove') score += val * 2; else score += val;
+                    let val = multiplier;
+                    if (activeWeapon === 'mixer') score += val * 3;
+                    else if (activeWeapon === 'glove') score += val * 2;
+                    else score += val;
                     scoreEl.innerText = Math.floor(score); capySize = 1.3;
                 }
             }
@@ -219,7 +233,7 @@
             menu.style.display = "none"; gameActive = true; lastTime = performance.now(); requestAnimationFrame(update);
         });
 
-        restartBtn.addEventListener('click', () => location.reload()); // Helpoin tapa resetoida kaikki tilat
+        restartBtn.addEventListener('click', () => location.reload());
     </script>
 </body>
 </html>
