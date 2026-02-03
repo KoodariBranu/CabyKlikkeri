@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Assembly Final Pro</title>
+    <title>Capybara Clicker: Ultimate Arsenal</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -10,12 +10,11 @@
         .stat-box { display: inline-block; background: rgba(255,255,255,0.8); padding: 10px 20px; border: 3px solid #5d4037; border-radius: 15px; font-size: 24px; color: #5d4037; font-weight: bold; margin: 0 10px; min-width: 150px; }
         #phase-msg { font-size: 45px; color: #fff; font-weight: bold; text-shadow: 3px 3px 0 #5d4037; margin-top: 20px; }
         
-        /* VALIKKO SIIRRETTY ALAREUNAAN */
         #menu { 
             position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); 
             z-index: 20; text-align: center; background: white; padding: 25px; 
             border: 6px solid #8d6e63; border-radius: 25px; box-shadow: 0 10px 0 #5d4037; 
-            width: 90%; max-width: 400px; 
+            width: 90%; max-width: 420px; 
         }
         
         button { padding: 15px 30px; font-size: 20px; cursor: pointer; border-radius: 12px; font-weight: bold; margin: 8px; border: none; transition: 0.2s; }
@@ -25,14 +24,15 @@
         .safe-btn { background: #3498db; color: white; box-shadow: 0 6px 0 #2980b9; }
         
         button:disabled { background: #ccc !important; box-shadow: none !important; cursor: not-allowed; opacity: 0.6; }
-        button:hover:not(:disabled) { transform: scale(1.05); }
         
         .grass { position: absolute; bottom: 0; width: 100%; height: 100px; background: #7CFC00; z-index: 0; border-top: 10px solid #556B2F; }
         #party-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: none; }
         .shake { animation: shake 0.2s; }
         @keyframes shake { 0% { left: -8px; } 50% { left: 8px; } 100% { left: 0px; } }
+        
         #finalScoreText { font-size: 2.5em; color: #5d4037; margin: 10px 0; }
-        .gamble-score { font-size: 2em; color: #e67e22; font-weight: bold; margin: 10px 0; }
+        #weapon-ui { margin-top: 10px; display: flex; justify-content: center; gap: 15px; }
+        .weapon-tag { background: rgba(0,0,0,0.7); color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: 1px solid #f1c40f; }
     </style>
 </head>
 <body style="display: flex; justify-content: center; align-items: center;">
@@ -43,19 +43,19 @@
             <div class="stat-box">PISTEET: <span id="score">0</span></div>
             <div class="stat-box">AIKA: <span id="timer">45</span>s</div>
             <div id="phase-msg"></div>
-            <div id="weapon-status" style="color:#e67e22; font-weight:bold;"></div>
+            <div id="weapon-ui"></div>
         </div>
 
         <div id="menu">
             <h1 id="main-title" style="color: #8d6e63; font-size: 1.8em; margin: 0;">CAPYBARA CLICKER</h1>
             
             <div id="instructions">
-                <p style="margin: 10px 0;">Kerää kertoimia. Rämpytä lopuksi!</p>
+                <p style="margin: 10px 0;">Etsi aseita (⚡, 🥊) nurmikolta!<br>Rämpytä lopuksi!</p>
                 <button id="playBtn">ALOITA!</button>
             </div>
 
             <div id="gamble-screen" style="display:none;">
-                <div class="gamble-score" id="gamble-current-score">0</div>
+                <div style="font-size: 2em; color: #e67e22; font-weight: bold;" id="gamble-current-score">0</div>
                 <button class="gamble-btn" id="gBtn1" onclick="handleGamble()">TUPLAA TAI KUITTAA</button>
                 <button class="safe-btn" id="gBtn2" onclick="showResults()">OTA PISTEET</button>
             </div>
@@ -84,14 +84,15 @@
         const multEl = document.getElementById("multiplier");
         const timerEl = document.getElementById("timer");
         const phaseEl = document.getElementById("phase-msg");
-        const weaponEl = document.getElementById("weapon-status");
+        const weaponUI = document.getElementById("weapon-ui");
         const playBtn = document.getElementById("playBtn");
         const restartBtn = document.getElementById("restartBtn");
         const menu = document.getElementById("menu");
         const music = document.getElementById("bgMusic");
 
         let width, height, score, multiplier, timeLeft, gameActive, items, lastTime, magnetTime = 0, nyanMode = 0;
-        let capySize = 1, mouseX = 0, mouseY = 0, goldenCapy = null, activeWeapon = null;
+        let capySize = 1, mouseX = 0, mouseY = 0, goldenCapy = null;
+        let hasMixer = false, hasGlove = false;
         let goldenCapySpawns = [38, 25, 15]; 
 
         function resize() {
@@ -121,10 +122,17 @@
                 else if (this.type === 'gold') multiplier += 2.0;
                 else if (this.type === 'magnet') magnetTime = 6;
                 else if (this.type === 'mine') { multiplier = Math.max(1.0, multiplier - 5.0); container.classList.add("shake"); setTimeout(()=>container.classList.remove("shake"), 200); }
-                else if (this.type === 'mixer') { activeWeapon = 'mixer'; weaponEl.innerText = "⚡ SÄHKÖVATKAIN!"; }
-                else if (this.type === 'glove') { activeWeapon = 'glove'; weaponEl.innerText = "🥊 KULTAINEN HANSKA!"; }
+                else if (this.type === 'mixer') { hasMixer = true; addWeaponTag("⚡ VATKAIN (3x Nopeus)"); }
+                else if (this.type === 'glove') { hasGlove = true; addWeaponTag("🥊 HANSKA (2x Teho)"); }
                 multEl.innerText = multiplier.toFixed(1);
             }
+        }
+
+        function addWeaponTag(text) {
+            const tag = document.createElement("div");
+            tag.className = "weapon-tag";
+            tag.innerText = text;
+            weaponUI.appendChild(tag);
         }
 
         function update(time) {
@@ -137,9 +145,10 @@
                 phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI" : "KERÄÄ KERROINTA");
                 if (Math.random() < (nyanMode > 0 ? 0.35 : 0.12)) {
                     let r = Math.random();
-                    if (r < 0.005) items.push(new FallingItem('mixer'));
-                    else if (r < 0.01) items.push(new FallingItem('glove'));
-                    else if (r < 0.015) items.push(new FallingItem('magnet'));
+                    // Aseet ovat nyt ERITTÄIN harvinaisia (0.3% ja 0.3%)
+                    if (r < 0.003 && !hasMixer) items.push(new FallingItem('mixer'));
+                    else if (r < 0.006 && !hasGlove) items.push(new FallingItem('glove'));
+                    else if (r < 0.012) items.push(new FallingItem('magnet'));
                     else if (r < 0.12) items.push(new FallingItem('mine'));
                     else if (r < 0.25) items.push(new FallingItem('gold'));
                     else items.push(new FallingItem('poop'));
@@ -158,10 +167,6 @@
 
         function draw() {
             ctx.clearRect(0, 0, width, height);
-            if (nyanMode > 0) {
-                ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
-                for(let i=0; i<10; i++) { let lx = (Math.random() * width); ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, height); ctx.stroke(); }
-            }
             if (timeLeft > 10) {
                 items.forEach(it => it.draw());
                 if (goldenCapy) {
@@ -173,7 +178,12 @@
                 ctx.save(); ctx.translate(width/2, height/2); ctx.scale(capySize, capySize);
                 ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(0, 0, 160, 120, 0, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(100, -40, 14, 0, Math.PI*2); ctx.fill();
-                if (activeWeapon) { ctx.font = "50px Arial"; ctx.fillText(activeWeapon === 'mixer' ? "⚡" : "🥊", -130, -50); }
+                
+                // Näytetään aseet Capybaran vieressä
+                ctx.font = "40px Arial";
+                if (hasMixer) ctx.fillText("⚡", -140, -40);
+                if (hasGlove) ctx.fillText("🥊", -140, 40);
+                
                 ctx.restore(); if (capySize > 1) capySize -= 0.1;
             }
         }
@@ -184,8 +194,6 @@
             document.getElementById("instructions").style.display = "none";
             document.getElementById("gamble-screen").style.display = "block";
             document.getElementById("gamble-current-score").innerText = Math.floor(score);
-            
-            // TURVAVIIVE: Lukitaan napit hetkeksi
             const g1 = document.getElementById("gBtn1");
             const g2 = document.getElementById("gBtn2");
             g1.disabled = g2.disabled = true;
@@ -194,8 +202,8 @@
 
         window.handleGamble = function() {
             const win = Math.random() > 0.5;
-            if (win) { score *= 2; alert("VOITTO! Pisteet tuplattu!"); }
-            else { score /= 2; alert("HÄVIÖ! Puolet meni."); }
+            if (win) { score *= 2; alert("Kruuna! Pisteet tuplattu!"); }
+            else { score /= 2; alert("Klaava! Menetit puolet pisteistäsi."); }
             showResults();
         }
 
@@ -224,25 +232,34 @@
                 let d = Math.hypot(e.clientX - width/2, e.clientY - height/2);
                 if (d < 220 * capySize) {
                     let val = multiplier;
-                    if (activeWeapon === 'mixer') score += val * 3; else if (activeWeapon === 'glove') score += val * 2; else score += val;
+                    // Yhdistetty logiikka: Mixer antaa 3x, Glove antaa 2x. Yhdessä ne ovat 6x.
+                    let multiplierStack = 1;
+                    if (hasMixer) multiplierStack *= 3;
+                    if (hasGlove) multiplierStack *= 2;
+                    
+                    score += val * multiplierStack;
                     scoreEl.innerText = Math.floor(score); capySize = 1.3;
                 }
             }
         });
 
-        playBtn.addEventListener('click', () => {
-            music.play(); score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0;
-            goldenCapySpawns = [38, 25, 15]; goldenCapy = null; activeWeapon = null;
-            weaponEl.innerText = ""; partyCanvas.style.display = "none";
+        function resetGame() {
+            music.play().catch(e => console.log("Blocked"));
+            score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0;
+            goldenCapySpawns = [38, 25, 15]; goldenCapy = null; 
+            hasMixer = false; hasGlove = false; weaponUI.innerHTML = "";
+            partyCanvas.style.display = "none";
+            scoreEl.innerText = "0"; multEl.innerText = "1.0";
             document.getElementById("main-title").innerText = "CAPYBARA CLICKER";
             document.getElementById("statsDisplay").style.display = "none";
             document.getElementById("instructions").style.display = "none";
             document.getElementById("gamble-screen").style.display = "none";
             restartBtn.style.display = "none";
             menu.style.display = "none"; gameActive = true; lastTime = performance.now(); requestAnimationFrame(update);
-        });
+        }
 
-        restartBtn.addEventListener('click', () => location.reload());
+        playBtn.addEventListener('click', resetGame);
+        restartBtn.addEventListener('click', resetGame);
     </script>
 </body>
 </html>
