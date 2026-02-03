@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Assembly Hardcore</title>
+    <title>Capybara Clicker: Assembly Fast Edition</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -21,7 +21,7 @@
         <div id="ui">
             <div class="stat-box">KERROIN: x<span id="multiplier">1.0</span></div>
             <div class="stat-box">PISTEET: <span id="score">0</span></div>
-            <div class="stat-box">AIKA: <span id="timer">55</span>s</div>
+            <div class="stat-box">AIKA: <span id="timer">45</span>s</div>
             <div id="phase-msg"></div>
         </div>
 
@@ -31,7 +31,7 @@
                 <h2 id="finalScoreText"></h2>
                 <p id="rewardText" style="color: #4CAF50; font-size: 20px; font-weight: bold;"></p>
             </div>
-            <p id="desc-text">Varo miinoja (💣) – ne vievät kerrointa!<br>Kultainen Capy on nyt nopea!</p>
+            <p id="desc-text">Varo miinoja (💣)! Kerää kertoimia nopeasti!<br>Kulta-Capy antaa +10 000p!</p>
             <button id="playBtn">ALOITA!</button>
         </div>
         
@@ -57,7 +57,7 @@
         let capySize = 1;
         let mouseX = 0, mouseY = 0;
         let goldenCapy = null;
-        let goldenCapySpawns = [48, 30, 15]; 
+        let goldenCapySpawns = [38, 25, 15]; 
 
         function resize() {
             width = canvas.width = partyCanvas.width = window.innerWidth;
@@ -71,13 +71,12 @@
                 this.type = type;
                 this.x = Math.random() * (width - 60) + 30;
                 this.y = -50;
-                this.speed = Math.random() * 2.5 + 2;
+                this.speed = Math.random() * 3 + 2.5;
                 this.r = 30;
                 this.content = type === 'poop' ? "💩" : (type === 'gold' ? "✨💩" : (type === 'magnet' ? "🧲" : "💣"));
                 this.collected = false;
             }
             update() {
-                // Magneetti ei vedä miinoja puoleensa
                 if (magnetTime > 0 && this.type !== 'magnet' && this.type !== 'mine') {
                     let dx = mouseX - this.x;
                     let dy = mouseY - this.y;
@@ -118,21 +117,22 @@
             if (timeLeft <= 0) return endGame();
 
             if (timeLeft > 10) {
-                phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI AKTIIVINEN" : "KERÄÄ KERROINTA");
+                phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI" : "KERÄÄ KERROINTA");
                 
-                if (Math.random() < (nyanMode > 0 ? 0.20 : 0.08)) {
+                // Nopeampi sade
+                if (Math.random() < (nyanMode > 0 ? 0.30 : 0.12)) {
                     let r = Math.random();
-                    if (r < 0.007) items.push(new FallingItem('magnet'));
-                    else if (r < 0.08) items.push(new FallingItem('mine')); // Miinat
-                    else if (r < 0.18) items.push(new FallingItem('gold'));
+                    if (r < 0.009) items.push(new FallingItem('magnet'));
+                    else if (r < 0.10) items.push(new FallingItem('mine'));
+                    else if (r < 0.22) items.push(new FallingItem('gold'));
                     else items.push(new FallingItem('poop'));
                 }
 
-                if (timeLeft < 45 && Math.random() < 0.002 && nyanMode <= 0) nyanMode = 6;
+                if (timeLeft < 30 && Math.random() < 0.003 && nyanMode <= 0) nyanMode = 6;
 
                 if (goldenCapySpawns.length > 0 && timeLeft <= goldenCapySpawns[0]) {
                     goldenCapySpawns.shift();
-                    goldenCapy = { x: -100, y: height - 60, r: 45, speed: 8 }; // Nopeus nostettu 8:aan
+                    goldenCapy = { x: -100, y: height - 60, r: 45, speed: 9 }; 
                 }
                 if (goldenCapy) {
                     goldenCapy.x += goldenCapy.speed;
@@ -222,7 +222,7 @@
                 document.getElementById("rewardText").innerText = "BILEET ALKOIVAT!";
                 startParty();
             } else {
-                document.getElementById("rewardText").innerText = score > 20000 ? "Mahtavaa! Varoitko miinoja?" : "Tavoite: 100 000 pistettä!";
+                document.getElementById("rewardText").innerText = "Tavoite: 100 000 pistettä!";
             }
             playBtn.innerText = "PELAA UUDELLEEN";
         }
@@ -251,8 +251,8 @@
         });
 
         playBtn.addEventListener('click', () => {
-            score = 0; multiplier = 1.0; timeLeft = 55; items = []; nyanMode = 0; magnetTime = 0;
-            goldenCapySpawns = [48, 30, 15]; goldenCapy = null;
+            score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0;
+            goldenCapySpawns = [38, 25, 15]; goldenCapy = null;
             partyCanvas.style.display = "none";
             scoreEl.innerText = "0"; multEl.innerText = "1.0";
             document.getElementById("main-title").innerText = "CAPYBARA CLICKER";
