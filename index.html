@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Assembly Pro</title>
+    <title>Capybara Clicker: Assembly Hardcore</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -31,7 +31,7 @@
                 <h2 id="finalScoreText"></h2>
                 <p id="rewardText" style="color: #4CAF50; font-size: 20px; font-weight: bold;"></p>
             </div>
-            <p id="desc-text">Etsi kultainen Capybara nurmikolta (+10 000p!)<br>Tavoite: 100 000 pistettä!</p>
+            <p id="desc-text">Varo miinoja (💣) – ne vievät kerrointa!<br>Kultainen Capy on nyt nopea!</p>
             <button id="playBtn">ALOITA!</button>
         </div>
         
@@ -73,11 +73,12 @@
                 this.y = -50;
                 this.speed = Math.random() * 2.5 + 2;
                 this.r = 30;
-                this.content = type === 'poop' ? "💩" : (type === 'gold' ? "✨💩" : "🧲");
+                this.content = type === 'poop' ? "💩" : (type === 'gold' ? "✨💩" : (type === 'magnet' ? "🧲" : "💣"));
                 this.collected = false;
             }
             update() {
-                if (magnetTime > 0 && this.type !== 'magnet') {
+                // Magneetti ei vedä miinoja puoleensa
+                if (magnetTime > 0 && this.type !== 'magnet' && this.type !== 'mine') {
                     let dx = mouseX - this.x;
                     let dy = mouseY - this.y;
                     let dist = Math.hypot(dx, dy);
@@ -101,6 +102,8 @@
                 if (this.type === 'poop') multiplier += 0.2;
                 else if (this.type === 'gold') multiplier += 2.0;
                 else if (this.type === 'magnet') magnetTime = 6;
+                else if (this.type === 'mine') multiplier = Math.max(1.0, multiplier - 5.0);
+                
                 multEl.innerText = multiplier.toFixed(1);
             }
         }
@@ -117,21 +120,19 @@
             if (timeLeft > 10) {
                 phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI AKTIIVINEN" : "KERÄÄ KERROINTA");
                 
-                // Harvennettu spawn
-                if (Math.random() < (nyanMode > 0 ? 0.20 : 0.07)) {
+                if (Math.random() < (nyanMode > 0 ? 0.20 : 0.08)) {
                     let r = Math.random();
                     if (r < 0.007) items.push(new FallingItem('magnet'));
-                    else if (r < 0.11) items.push(new FallingItem('gold'));
+                    else if (r < 0.08) items.push(new FallingItem('mine')); // Miinat
+                    else if (r < 0.18) items.push(new FallingItem('gold'));
                     else items.push(new FallingItem('poop'));
                 }
 
-                // Nyan Mode harvemmin
                 if (timeLeft < 45 && Math.random() < 0.002 && nyanMode <= 0) nyanMode = 6;
 
-                // Kultainen Capybara spawn korjaus
                 if (goldenCapySpawns.length > 0 && timeLeft <= goldenCapySpawns[0]) {
                     goldenCapySpawns.shift();
-                    goldenCapy = { x: -100, y: height - 60, r: 45, speed: 4 };
+                    goldenCapy = { x: -100, y: height - 60, r: 45, speed: 8 }; // Nopeus nostettu 8:aan
                 }
                 if (goldenCapy) {
                     goldenCapy.x += goldenCapy.speed;
@@ -172,7 +173,6 @@
                     ctx.translate(goldenCapy.x, goldenCapy.y);
                     ctx.fillStyle = "#FFD700";
                     ctx.beginPath(); ctx.ellipse(0, 0, 45, 33, 0, 0, Math.PI*2); ctx.fill();
-                    // Kruunu
                     ctx.fillStyle = "#FF0000";
                     ctx.beginPath(); ctx.moveTo(-10, -32); ctx.lineTo(0, -50); ctx.lineTo(10, -32); ctx.fill();
                     ctx.restore();
@@ -222,7 +222,7 @@
                 document.getElementById("rewardText").innerText = "BILEET ALKOIVAT!";
                 startParty();
             } else {
-                document.getElementById("rewardText").innerText = score > 20000 ? "Mahtavaa! Kultainen Capybara löytyi!" : "Tavoite: 100 000 pistettä!";
+                document.getElementById("rewardText").innerText = score > 20000 ? "Mahtavaa! Varoitko miinoja?" : "Tavoite: 100 000 pistettä!";
             }
             playBtn.innerText = "PELAA UUDELLEEN";
         }
@@ -232,7 +232,6 @@
         canvas.addEventListener('mousedown', (e) => {
             if (!gameActive) return;
             if (timeLeft > 10) {
-                // Kultainen Capybara osuma-alue
                 if (goldenCapy && Math.hypot(e.clientX - goldenCapy.x, e.clientY - goldenCapy.y) < 65) {
                     score += 10000;
                     scoreEl.innerText = Math.floor(score);
