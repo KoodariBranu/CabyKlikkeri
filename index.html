@@ -64,6 +64,7 @@
     </div>
 
     <audio id="bgMusic" loop><source src="music.mp3" type="audio/mpeg"></audio>
+    <audio id="nyanMusic" loop><source src="nyan.mp3" type="audio/mpeg"></audio>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -81,13 +82,29 @@
         const restartBtn = document.getElementById("restartBtn");
         const menu = document.getElementById("menu");
         const music = document.getElementById("bgMusic");
+        const nyanMusic = document.getElementById("nyanMusic");
         const gambleScoreDisplay = document.getElementById("gamble-current-score");
+
+        let audioCtx;
+        function initAudio() { if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } }
+
+        function playTone(freq, type, duration) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
 
         let width, height, score, multiplier, timeLeft, gameActive, items, lastTime, magnetTime = 0, nyanMode = 0;
         let capySize = 1, mouseX = 0, mouseY = 0, goldenCapy = null;
         let hasMixer = false, hasGlove = false, hasWand = false;
         let goldenCapySpawns = [38, 25, 15]; 
-        let isDoubleWin = false;
+        let isDoubleWin = false, wasNyan = false;
 
         let storedHighScore = localStorage.getItem("capyHighScore") || 0;
         hsEl.innerText = Math.floor(storedHighScore);
@@ -96,8 +113,7 @@
             width = canvas.width = partyCanvas.width = window.innerWidth;
             height = canvas.height = partyCanvas.height = window.innerHeight;
         }
-        window.addEventListener('resize', resize);
-        resize();
+        window.addEventListener('resize', resize); resize();
 
         class FallingItem {
             constructor(type) {
@@ -117,16 +133,20 @@
             draw() { if (!this.collected) { ctx.font = "40px Arial"; ctx.textAlign = "center"; ctx.fillText(this.content, this.x, this.y); } }
             collect() {
                 if (this.collected) return; this.collected = true;
-                if (this.type === 'poop') multiplier += 0.2;
-                else if (this.type === 'gold') multiplier += 2.0;
-                else if (this.type === 'magnet') magnetTime = 6;
-                else if (this.type === 'wand') { hasWand = true; addWeaponTag("🪄 TAIKASAUVA"); }
-                else if (this.type === 'mine') { 
-                    multiplier = Math.max(1.0, multiplier - 5.0); hasMixer = hasGlove = hasWand = false;
+                if (this.type === 'mine') { 
+                    multiplier = Math.max(1.0, multiplier - 5.0); 
+                    hasMixer = hasGlove = hasWand = false;
                     weaponUI.innerHTML = ""; shakeScreen(); 
+                    playTone(150, 'sawtooth', 0.5);
+                } else {
+                    playTone(this.type === 'gold' ? 800 : 400, 'sine', 0.1);
+                    if (this.type === 'poop') multiplier += 0.2;
+                    else if (this.type === 'gold') multiplier += 2.0;
+                    else if (this.type === 'magnet') magnetTime = 6;
+                    else if (this.type === 'wand') { hasWand = true; addWeaponTag("🪄 TAIKASAUVA"); }
+                    else if (this.type === 'mixer' && !hasMixer) { hasMixer = true; addWeaponTag("⚡ VATKAIN"); }
+                    else if (this.type === 'glove' && !hasGlove) { hasGlove = true; addWeaponTag("🥊 HANSKA"); }
                 }
-                else if (this.type === 'mixer' && !hasMixer) { hasMixer = true; addWeaponTag("⚡ VATKAIN"); }
-                else if (this.type === 'glove' && !hasGlove) { hasGlove = true; addWeaponTag("🥊 HANSKA"); }
                 multEl.innerText = multiplier.toFixed(1);
             }
         }
@@ -143,6 +163,14 @@
 
             if (timeLeft > 10) {
                 phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI" : "KERÄÄ KERROINTA");
+                
+                // MUSIIKIN VAIHTO LOGIIKKA
+                if (nyanMode > 0) {
+                    if (!wasNyan) { music.pause(); nyanMusic.play(); wasNyan = true; }
+                } else {
+                    if (wasNyan) { nyanMusic.pause(); nyanMusic.currentTime = 0; music.play(); wasNyan = false; }
+                }
+
                 if (Math.random() < (nyanMode > 0 ? 0.35 : 0.12)) {
                     let r = Math.random();
                     if (r < 0.003 && !hasMixer) items.push(new FallingItem('mixer'));
@@ -156,7 +184,10 @@
                 if (timeLeft < 30 && Math.random() < 0.003 && nyanMode <= 0) nyanMode = 6;
                 if (goldenCapySpawns.length > 0 && timeLeft <= goldenCapySpawns[0]) { goldenCapySpawns.shift(); goldenCapy = { x: -100, y: height - 60, speed: 9.5 }; }
                 if (goldenCapy) { goldenCapy.x += goldenCapy.speed; if (goldenCapy.x > width + 150) goldenCapy = null; }
-            } else { phaseEl.innerText = "RÄMPYTÄ!!!"; container.style.background = "#FFD700"; items = []; goldenCapy = null; nyanMode = 0; }
+            } else { 
+                phaseEl.innerText = "RÄMPYTÄ!!!"; container.style.background = "#FFD700"; items = []; goldenCapy = null; nyanMode = 0; 
+                if (wasNyan) { nyanMusic.pause(); music.play(); wasNyan = false; }
+            }
 
             if (nyanMode > 0) { nyanMode -= dt; container.style.background = `hsl(${(Date.now()/5) % 360}, 70%, 60%)`; }
             else if (timeLeft > 10) { container.style.background = "linear-gradient(#87CEEB, #E0F7FA)"; }
@@ -167,6 +198,10 @@
 
         function draw() {
             ctx.clearRect(0, 0, width, height);
+            if (nyanMode > 0) {
+                ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
+                for(let i=0; i<10; i++) { let lx = (Math.random() * width); ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, height); ctx.stroke(); }
+            }
             if (gameActive && timeLeft <= 10) {
                 ctx.save(); ctx.translate(width/2, height/2); ctx.scale(capySize, capySize);
                 ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(0, 0, 160, 120, 0, 0, Math.PI*2); ctx.fill();
@@ -185,7 +220,7 @@
         }
 
         function startGamblePhase() {
-            gameActive = false; music.pause(); menu.style.display = "block";
+            gameActive = false; music.pause(); nyanMusic.pause(); menu.style.display = "block";
             document.getElementById("instructions").style.display = "none";
             document.getElementById("gamble-screen").style.display = "block";
             gambleScoreDisplay.innerText = Math.floor(score);
@@ -195,14 +230,8 @@
 
         window.handleGamble = function() {
             const win = Math.random() > 0.5;
-            if (win) { 
-                score *= 2; 
-                isDoubleWin = true; // Konfetit triggeröidään
-                alert("VOITTO! Pisteet tuplattu!"); 
-            } else { 
-                score /= 2; 
-                alert("HÄVIÖ! Puolet meni."); 
-            }
+            if (win) { score *= 2; isDoubleWin = true; playTone(600, 'sine', 0.3); alert("VOITTO! Pisteet tuplattu!"); }
+            else { score /= 2; playTone(200, 'square', 0.4); alert("HÄVIÖ! Puolet meni."); }
             showResults();
         }
 
@@ -210,17 +239,15 @@
             document.getElementById("gamble-screen").style.display = "none";
             document.getElementById("statsDisplay").style.display = "block";
             document.getElementById("finalScoreText").innerText = Math.floor(score);
-            
             if (score > storedHighScore) {
-                storedHighScore = score;
-                localStorage.setItem("capyHighScore", storedHighScore);
+                storedHighScore = score; localStorage.setItem("capyHighScore", storedHighScore);
                 hsEl.innerText = Math.floor(storedHighScore);
                 document.getElementById("rewardText").innerText = "UUSI ENNÄTYS!!! 🏆";
                 hsEl.parentElement.classList.add("highscore-flash");
-                startParty(); // Ennätysbileet
+                startParty(); 
             } else if (isDoubleWin) {
                 document.getElementById("rewardText").innerText = "RISKIVOITTO! ✨";
-                startParty(); // Tuplausbileet
+                startParty(); 
             } else {
                 document.getElementById("rewardText").innerText = score >= 100000 ? "✨ ULTIMATE CAPY GOD ✨" : "Hyvä peli!";
                 if (score >= 100000) startParty();
@@ -239,9 +266,13 @@
 
         window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
         canvas.addEventListener('mousedown', (e) => {
+            initAudio();
             if (!gameActive) return;
             if (timeLeft > 10) {
-                if (goldenCapy && Math.hypot(e.clientX - goldenCapy.x, e.clientY - goldenCapy.y) < 65) { score += 10000; scoreEl.innerText = Math.floor(score); goldenCapy = null; }
+                if (goldenCapy && Math.hypot(e.clientX - goldenCapy.x, e.clientY - goldenCapy.y) < 65) { 
+                    score += 10000; scoreEl.innerText = Math.floor(score); goldenCapy = null; 
+                    playTone(900, 'sine', 0.2);
+                }
                 items.forEach(it => { if (Math.hypot(e.clientX - it.x, e.clientY - it.y) < 65) it.collect(); });
             } else {
                 let d = Math.hypot(e.clientX - width/2, e.clientY - height/2);
@@ -249,13 +280,19 @@
                     let val = multiplier; let s = 1;
                     if (hasMixer) s *= 3; if (hasGlove) s *= 2;
                     score += val * s; scoreEl.innerText = Math.floor(score); capySize = 1.3;
+                    playTone(200 + (multiplier * 5), 'sine', 0.05);
                 }
             }
         });
 
-        function resetGame() {
+        playBtn.addEventListener('click', () => {
+            initAudio();
             music.play().catch(e => console.log("Blocked"));
-            score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0; isDoubleWin = false;
+            resetGame();
+        });
+
+        function resetGame() {
+            score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0; isDoubleWin = false; wasNyan = false;
             goldenCapySpawns = [38, 25, 15]; goldenCapy = null; 
             hasMixer = hasGlove = hasWand = false; weaponUI.innerHTML = "";
             partyCanvas.style.display = "none"; scoreEl.innerText = "0"; multEl.innerText = "1.0";
@@ -268,7 +305,6 @@
             gameActive = true; lastTime = performance.now(); requestAnimationFrame(update);
         }
 
-        playBtn.addEventListener('click', resetGame);
         restartBtn.addEventListener('click', resetGame);
     </script>
 </body>
