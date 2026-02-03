@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Assembly Fast Edition</title>
+    <title>Capybara Clicker: Assembly Final</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -13,6 +13,8 @@
         button { padding: 20px 50px; font-size: 28px; background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 20px; box-shadow: 0 6px 0 #2E7D32; font-weight: bold; }
         .grass { position: absolute; bottom: 0; width: 100%; height: 100px; background: #7CFC00; z-index: 0; border-top: 10px solid #556B2F; }
         #party-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: none; }
+        .shake { animation: shake 0.2s; }
+        @keyframes shake { 0% { left: -5px; } 50% { left: 5px; } 100% { left: 0px; } }
     </style>
 </head>
 <body style="display: flex; justify-content: center; align-items: center;">
@@ -31,7 +33,7 @@
                 <h2 id="finalScoreText"></h2>
                 <p id="rewardText" style="color: #4CAF50; font-size: 20px; font-weight: bold;"></p>
             </div>
-            <p id="desc-text">Varo miinoja (💣)! Kerää kertoimia nopeasti!<br>Kulta-Capy antaa +10 000p!</p>
+            <p id="desc-text">Klikkaa keltaista nappia aloittaaksesi!<br>Pääsetkö 100 000 pisteeseen?</p>
             <button id="playBtn">ALOITA!</button>
         </div>
         
@@ -39,6 +41,10 @@
         <canvas id="gameCanvas"></canvas>
         <canvas id="party-canvas"></canvas>
     </div>
+
+    <audio id="bgMusic" loop>
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -52,9 +58,10 @@
         const phaseEl = document.getElementById("phase-msg");
         const playBtn = document.getElementById("playBtn");
         const menu = document.getElementById("menu");
+        const music = document.getElementById("bgMusic");
 
         let width, height, score, multiplier, timeLeft, gameActive, items, lastTime, magnetTime = 0, nyanMode = 0;
-        let capySize = 1;
+        let capySize = 1, shakeTime = 0;
         let mouseX = 0, mouseY = 0;
         let goldenCapy = null;
         let goldenCapySpawns = [38, 25, 15]; 
@@ -82,8 +89,8 @@
                     let dy = mouseY - this.y;
                     let dist = Math.hypot(dx, dy);
                     if (dist < 450) {
-                        this.x += (dx / dist) * 22;
-                        this.y += (dy / dist) * 22;
+                        this.x += (dx / dist) * 25;
+                        this.y += (dy / dist) * 25;
                         if (dist < 40) this.collect();
                     }
                 }
@@ -101,10 +108,17 @@
                 if (this.type === 'poop') multiplier += 0.2;
                 else if (this.type === 'gold') multiplier += 2.0;
                 else if (this.type === 'magnet') magnetTime = 6;
-                else if (this.type === 'mine') multiplier = Math.max(1.0, multiplier - 5.0);
-                
+                else if (this.type === 'mine') {
+                    multiplier = Math.max(1.0, multiplier - 5.0);
+                    shakeScreen();
+                }
                 multEl.innerText = multiplier.toFixed(1);
             }
+        }
+
+        function shakeScreen() {
+            container.classList.add("shake");
+            setTimeout(() => container.classList.remove("shake"), 200);
         }
 
         function update(time) {
@@ -119,12 +133,11 @@
             if (timeLeft > 10) {
                 phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI" : "KERÄÄ KERROINTA");
                 
-                // Nopeampi sade
-                if (Math.random() < (nyanMode > 0 ? 0.30 : 0.12)) {
+                if (Math.random() < (nyanMode > 0 ? 0.35 : 0.12)) {
                     let r = Math.random();
-                    if (r < 0.009) items.push(new FallingItem('magnet'));
-                    else if (r < 0.10) items.push(new FallingItem('mine'));
-                    else if (r < 0.22) items.push(new FallingItem('gold'));
+                    if (r < 0.01) items.push(new FallingItem('magnet'));
+                    else if (r < 0.12) items.push(new FallingItem('mine'));
+                    else if (r < 0.25) items.push(new FallingItem('gold'));
                     else items.push(new FallingItem('poop'));
                 }
 
@@ -132,7 +145,7 @@
 
                 if (goldenCapySpawns.length > 0 && timeLeft <= goldenCapySpawns[0]) {
                     goldenCapySpawns.shift();
-                    goldenCapy = { x: -100, y: height - 60, r: 45, speed: 9 }; 
+                    goldenCapy = { x: -100, y: height - 60, r: 45, speed: 9.5 }; 
                 }
                 if (goldenCapy) {
                     goldenCapy.x += goldenCapy.speed;
@@ -166,6 +179,17 @@
 
         function draw() {
             ctx.clearRect(0, 0, width, height);
+            
+            // Vauhtiviivat Nyan Modessa
+            if (nyanMode > 0) {
+                ctx.strokeStyle = "rgba(255,255,255,0.3)";
+                ctx.lineWidth = 2;
+                for(let i=0; i<10; i++) {
+                    let lx = (Math.random() * width);
+                    ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, height); ctx.stroke();
+                }
+            }
+
             if (timeLeft > 10) {
                 items.forEach(it => it.draw());
                 if (goldenCapy) {
@@ -213,6 +237,7 @@
 
         function endGame() {
             gameActive = false;
+            music.pause(); music.currentTime = 0; // Musiikki seis
             menu.style.display = "block";
             document.getElementById("statsDisplay").style.display = "block";
             document.getElementById("finalScoreText").innerText = "PISTEET: " + Math.floor(score);
@@ -236,6 +261,7 @@
                     score += 10000;
                     scoreEl.innerText = Math.floor(score);
                     goldenCapy = null;
+                    shakeScreen();
                 }
                 items.forEach(it => {
                     if (Math.hypot(e.clientX - it.x, e.clientY - it.y) < 65) it.collect();
@@ -251,6 +277,9 @@
         });
 
         playBtn.addEventListener('click', () => {
+            // Käynnistä musiikki
+            music.play().catch(e => console.log("Musiikki vaatii klikkauksen"));
+            
             score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0;
             goldenCapySpawns = [38, 25, 15]; goldenCapy = null;
             partyCanvas.style.display = "none";
