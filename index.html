@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Summer Glitch Pro</title>
+    <title>Capybara Clicker: Ultimate Assembly Edition</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -11,8 +11,8 @@
         #phase-msg { font-size: 45px; color: #fff; font-weight: bold; text-shadow: 3px 3px 0 #5d4037; margin-top: 20px; }
         #menu { position: relative; z-index: 20; text-align: center; background: white; padding: 40px; border: 6px solid #8d6e63; border-radius: 30px; margin: auto; box-shadow: 0 10px 0 #5d4037; max-width: 500px; }
         button { padding: 20px 50px; font-size: 28px; background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 20px; box-shadow: 0 6px 0 #2E7D32; font-weight: bold; }
-        button:hover { transform: translateY(-3px); box-shadow: 0 9px 0 #2E7D32; }
         .grass { position: absolute; bottom: 0; width: 100%; height: 100px; background: #7CFC00; z-index: 0; border-top: 10px solid #556B2F; }
+        #party-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; display: none; }
     </style>
 </head>
 <body style="display: flex; justify-content: center; align-items: center;">
@@ -26,22 +26,25 @@
         </div>
 
         <div id="menu">
-            <h1 style="color: #8d6e63;">CAPYBARA CLICKER</h1>
+            <h1 id="main-title" style="color: #8d6e63;">CAPYBARA CLICKER</h1>
             <div id="statsDisplay" style="display:none;">
                 <h2 id="finalScoreText"></h2>
                 <p id="rewardText" style="color: #4CAF50; font-size: 20px; font-weight: bold;"></p>
             </div>
-            <p>1. Kerää 💩-emojeja (Nosta kerrointa)<br>2. 🧲 Magneetti kerää automaattisesti!<br>3. <b>RÄMPYTÄ CAPYBARAA</b> lopussa!</p>
+            <p id="desc-text">Etsi kultainen Capybara nurmikolta (+10 000p!)<br>Tavoite: 100 000 pistettä!</p>
             <button id="playBtn">ALOITA!</button>
         </div>
         
         <div class="grass"></div>
         <canvas id="gameCanvas"></canvas>
+        <canvas id="party-canvas"></canvas>
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const partyCanvas = document.getElementById("party-canvas");
+        const pCtx = partyCanvas.getContext("2d");
         const container = document.getElementById("game-container");
         const scoreEl = document.getElementById("score");
         const multEl = document.getElementById("multiplier");
@@ -53,10 +56,12 @@
         let width, height, score, multiplier, timeLeft, gameActive, items, lastTime, magnetTime = 0, nyanMode = 0;
         let capySize = 1;
         let mouseX = 0, mouseY = 0;
+        let goldenCapy = null;
+        let goldenCapySpawns = [48, 30, 15]; // Sekunnit jolloin kultainen capy ilmestyy
 
         function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
+            width = canvas.width = partyCanvas.width = window.innerWidth;
+            height = canvas.height = partyCanvas.height = window.innerHeight;
         }
         window.addEventListener('resize', resize);
         resize();
@@ -79,7 +84,6 @@
                     if (dist < 400) {
                         this.x += (dx / dist) * 20;
                         this.y += (dy / dist) * 20;
-                        // Automaattinen keräys magneetilla
                         if (dist < 40) this.collect();
                     }
                 }
@@ -113,27 +117,31 @@
             if (timeLeft > 10) {
                 phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI AKTIIVINEN" : "KERÄÄ KERROINTA");
                 
-                // Spawn logiikka
                 if (Math.random() < (nyanMode > 0 ? 0.25 : 0.07)) {
                     let r = Math.random();
-                    if (r < 0.01) items.push(new FallingItem('magnet')); // Harvinaisempi
+                    if (r < 0.008) items.push(new FallingItem('magnet'));
                     else if (r < 0.12) items.push(new FallingItem('gold'));
                     else items.push(new FallingItem('poop'));
                 }
 
-                // Nyan Mode käynnistyy vasta 10 sekunnin kohdalla (kun aikaa jäljellä 45s)
-                if (timeLeft < 45 && Math.random() < 0.004 && nyanMode <= 0) {
-                    nyanMode = 6;
+                if (timeLeft < 45 && Math.random() < 0.004 && nyanMode <= 0) nyanMode = 6;
+
+                // Kultainen Capybara logiikka
+                if (goldenCapySpawns.length > 0 && timeLeft <= goldenCapySpawns[0]) {
+                    goldenCapySpawns.shift();
+                    goldenCapy = { x: -100, y: height - 60, r: 40, speed: 3 };
+                }
+                if (goldenCapy) {
+                    goldenCapy.x += goldenCapy.speed;
+                    if (goldenCapy.x > width + 100) goldenCapy = null;
                 }
             } else {
                 phaseEl.innerText = "RÄMPYTÄ!!!";
                 container.style.background = "#FFD700";
                 items = [];
                 nyanMode = 0;
-                magnetTime = 0;
             }
 
-            // Taustat ja efektit
             if (nyanMode > 0) {
                 nyanMode -= dt;
                 container.style.background = `hsl(${time % 360}, 70%, 60%)`;
@@ -156,16 +164,49 @@
             ctx.clearRect(0, 0, width, height);
             if (timeLeft > 10) {
                 items.forEach(it => it.draw());
+                if (goldenCapy) {
+                    ctx.save();
+                    ctx.translate(goldenCapy.x, goldenCapy.y);
+                    // Kultainen Capybara
+                    ctx.fillStyle = "#FFD700";
+                    ctx.beginPath(); ctx.ellipse(0, 0, 40, 30, 0, 0, Math.PI*2); ctx.fill();
+                    // Kruunu
+                    ctx.fillStyle = "#FF0000";
+                    ctx.beginPath(); ctx.moveTo(-10, -30); ctx.lineTo(0, -45); ctx.lineTo(10, -30); ctx.fill();
+                    ctx.restore();
+                }
             } else {
                 ctx.save();
                 ctx.translate(width/2, height/2);
                 ctx.scale(capySize, capySize);
                 ctx.fillStyle = "#8d6e63";
                 ctx.beginPath(); ctx.ellipse(0, 0, 160, 120, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(100, -40, 14, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "black";
+                ctx.beginPath(); ctx.arc(100, -40, 14, 0, Math.PI*2); ctx.fill();
                 ctx.restore();
                 if (capySize > 1) capySize -= 0.1;
             }
+        }
+
+        function startParty() {
+            partyCanvas.style.display = "block";
+            let particles = [];
+            for(let i=0; i<150; i++) {
+                particles.push({
+                    x: Math.random()*width, y: Math.random()*height,
+                    s: Math.random()*5+2, c: `hsl(${Math.random()*360}, 100%, 50%)`,
+                    v: Math.random()*10+5
+                });
+            }
+            function anim() {
+                pCtx.clearRect(0, 0, width, height);
+                particles.forEach(p => {
+                    p.y += p.v; if (p.y > height) p.y = -10;
+                    pCtx.fillStyle = p.c; pCtx.fillRect(p.x, p.y, p.s, p.s);
+                });
+                if (partyCanvas.style.display === "block") requestAnimationFrame(anim);
+            }
+            anim();
         }
 
         function endGame() {
@@ -174,12 +215,13 @@
             document.getElementById("statsDisplay").style.display = "block";
             document.getElementById("finalScoreText").innerText = "PISTEET: " + Math.floor(score);
             
-            let rank = "Capybara-aloittelija";
-            if (score > 15000) rank = "✨ ULTIMATE CAPY GOD ✨";
-            else if (score > 8000) rank = "Kultainen Capybara";
-            else if (score > 3000) rank = "Ahkera kerääjä";
-            
-            document.getElementById("rewardText").innerText = "Sijoitus: " + rank;
+            if (score >= 100000) {
+                document.getElementById("main-title").innerText = "✨ ULTIMATE CAPY GOD ✨";
+                document.getElementById("rewardText").innerText = "BILEET ALKOIVAT!";
+                startParty();
+            } else {
+                document.getElementById("rewardText").innerText = score > 15000 ? "Mahtavaa! Kultainen Capybara auttoi!" : "Yritä päästä 100 000 pisteeseen!";
+            }
             playBtn.innerText = "PELAA UUDELLEEN";
         }
 
@@ -188,6 +230,11 @@
         canvas.addEventListener('mousedown', (e) => {
             if (!gameActive) return;
             if (timeLeft > 10) {
+                if (goldenCapy && Math.hypot(e.clientX - goldenCapy.x, e.clientY - goldenCapy.y) < 50) {
+                    score += 10000;
+                    scoreEl.innerText = Math.floor(score);
+                    goldenCapy = null;
+                }
                 items.forEach(it => {
                     if (Math.hypot(e.clientX - it.x, e.clientY - it.y) < 60) it.collect();
                 });
@@ -203,7 +250,10 @@
 
         playBtn.addEventListener('click', () => {
             score = 0; multiplier = 1.0; timeLeft = 55; items = []; nyanMode = 0; magnetTime = 0;
+            goldenCapySpawns = [48, 30, 15]; goldenCapy = null;
+            partyCanvas.style.display = "none";
             scoreEl.innerText = "0"; multEl.innerText = "1.0";
+            document.getElementById("main-title").innerText = "CAPYBARA CLICKER";
             menu.style.display = "none";
             gameActive = true;
             lastTime = performance.now();
