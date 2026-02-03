@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Capybara Clicker: Assembly Legend Edition</title>
+    <title>Capybara Clicker: HappyBara Edition</title>
     <style>
         html, body { height: 100%; margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; user-select: none; }
         #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(#87CEEB, #E0F7FA); transition: background 0.5s; }
@@ -27,7 +27,7 @@
         .gamble-score { font-size: 2.5em; color: #e67e22; font-weight: bold; margin: 15px 0; }
     </style>
 </head>
-<body style="display: flex; justify-content: center; align-items: center;">
+<body>
 
     <div id="game-container">
         <div id="ui">
@@ -42,7 +42,7 @@
         <div id="menu">
             <h1 id="main-title" style="color: #8d6e63; font-size: 1.8em; margin: 0;">CAPYBARA CLICKER</h1>
             <div id="instructions">
-                <p>Kerää kertoimia ja aseita. Varo miinoja!<br>Voitko rikkoa ennätyksen?</p>
+                <p>Klikkaa aloittaaksesi!<br>Voitko rikkoa ennätyksen?</p>
                 <button id="playBtn">ALOITA!</button>
             </div>
             <div id="gamble-screen" style="display:none;">
@@ -63,8 +63,9 @@
         <canvas id="party-canvas"></canvas>
     </div>
 
-    <audio id="bgMusic" loop preload="auto"><source src="music.mp3" type="audio/mpeg"></audio>
-    <audio id="nyanMusic" loop preload="auto"><source src="nyan.mp3" type="audio/mpeg"></audio>
+    <audio id="bgMusic" loop preload="auto">
+        <source src="HappyBara.mp3" type="audio/mpeg">
+    </audio>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -82,7 +83,6 @@
         const restartBtn = document.getElementById("restartBtn");
         const menu = document.getElementById("menu");
         const music = document.getElementById("bgMusic");
-        const nyanMusic = document.getElementById("nyanMusic");
         const gambleScoreDisplay = document.getElementById("gamble-current-score");
 
         let audioCtx;
@@ -90,14 +90,7 @@
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            // Herätetään molemmat audiot heti
-            music.play().then(() => {
-                // nyanMusic herätetään taustalle ja hiljennetään heti
-                nyanMusic.play().then(() => {
-                    nyanMusic.pause();
-                    nyanMusic.currentTime = 0;
-                });
-            }).catch(err => console.log("Audio trigger error:", err));
+            music.play().catch(err => console.log("Audio trigger error:", err));
         }
 
         function playTone(freq, type, duration) {
@@ -106,7 +99,7 @@
             const gain = audioCtx.createGain();
             osc.type = type;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
             osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + duration);
@@ -116,7 +109,7 @@
         let capySize = 1, mouseX = 0, mouseY = 0, goldenCapy = null;
         let hasMixer = false, hasGlove = false, hasWand = false;
         let goldenCapySpawns = [38, 25, 15]; 
-        let isDoubleWin = false, wasNyan = false;
+        let isDoubleWin = false;
 
         let storedHighScore = localStorage.getItem("capyHighScore") || 0;
         hsEl.innerText = Math.floor(storedHighScore);
@@ -169,10 +162,13 @@
             if (timeLeft > 10) {
                 phaseEl.innerText = nyanMode > 0 ? "NYAN MODE!!!" : (magnetTime > 0 ? "🧲 MAGNEETTI" : "KERÄÄ KERROINTA");
                 
+                // NYAN MUSIIKKI-EFEKTI: Nopeutetaan biisiä
                 if (nyanMode > 0) {
-                    if (!wasNyan) { music.pause(); nyanMusic.play().catch(e => {}); wasNyan = true; }
+                    music.playbackRate = 1.7; // Nopea
+                    music.volume = 1.0;
                 } else {
-                    if (wasNyan) { nyanMusic.pause(); nyanMusic.currentTime = 0; music.play().catch(e => {}); wasNyan = false; }
+                    music.playbackRate = 1.0; // Normaali
+                    music.volume = 0.7;
                 }
 
                 if (Math.random() < (nyanMode > 0 ? 0.35 : 0.12)) {
@@ -190,7 +186,7 @@
                 if (goldenCapy) { goldenCapy.x += goldenCapy.speed; if (goldenCapy.x > width + 150) goldenCapy = null; }
             } else { 
                 phaseEl.innerText = "RÄMPYTÄ!!!"; container.style.background = "#FFD700"; items = []; goldenCapy = null; nyanMode = 0; 
-                if (wasNyan) { nyanMusic.pause(); music.play(); wasNyan = false; }
+                music.playbackRate = 1.2; // Hieman kiihtyvä rämpytykseen
             }
 
             if (nyanMode > 0) { nyanMode -= dt; container.style.background = `hsl(${(Date.now()/5) % 360}, 70%, 60%)`; }
@@ -218,42 +214,26 @@
             }
         }
 
-        function startGamblePhase() {
-            gameActive = false; music.pause(); nyanMusic.pause(); menu.style.display = "block";
-            document.getElementById("instructions").style.display = "none";
-            document.getElementById("gamble-screen").style.display = "block";
-            gambleScoreDisplay.innerText = Math.floor(score);
-            const g1 = document.getElementById("gBtn1"); const g2 = document.getElementById("gBtn2");
-            g1.disabled = g2.disabled = true; setTimeout(() => { g1.disabled = g2.disabled = false; }, 1500);
-        }
+        function startGamblePhase() { gameActive = false; music.pause(); document.getElementById("menu").style.display = "block"; document.getElementById("instructions").style.display = "none"; document.getElementById("gamble-screen").style.display = "block"; gambleScoreDisplay.innerText = Math.floor(score); const g1 = document.getElementById("gBtn1"); const g2 = document.getElementById("gBtn2"); g1.disabled = g2.disabled = true; setTimeout(() => { g1.disabled = g2.disabled = false; }, 1500); }
 
         window.handleGamble = function() {
-            const win = Math.random() > 0.5;
-            if (win) { score *= 2; isDoubleWin = true; playTone(600, 'sine', 0.3); alert("VOITTO! Pisteet tuplattu!"); }
+            if (Math.random() > 0.5) { score *= 2; isDoubleWin = true; playTone(600, 'sine', 0.3); alert("VOITTO! Pisteet tuplattu!"); }
             else { score /= 2; playTone(200, 'square', 0.4); alert("HÄVIÖ! Puolet meni."); }
             showResults();
         }
 
         window.showResults = function() {
-            document.getElementById("gamble-screen").style.display = "none";
-            document.getElementById("statsDisplay").style.display = "block";
-            document.getElementById("finalScoreText").innerText = Math.floor(score);
+            document.getElementById("gamble-screen").style.display = "none"; document.getElementById("statsDisplay").style.display = "block"; document.getElementById("finalScoreText").innerText = Math.floor(score);
             if (score > storedHighScore) { storedHighScore = score; localStorage.setItem("capyHighScore", storedHighScore); hsEl.innerText = Math.floor(storedHighScore); document.getElementById("rewardText").innerText = "UUSI ENNÄTYS!!! 🏆"; hsEl.parentElement.classList.add("highscore-flash"); startParty(); }
             else if (isDoubleWin) { document.getElementById("rewardText").innerText = "RISKIVOITTO! ✨"; startParty(); }
             else { document.getElementById("rewardText").innerText = score >= 100000 ? "✨ ULTIMATE CAPY GOD ✨" : "Hyvä peli!"; if (score >= 100000) startParty(); }
             setTimeout(() => { restartBtn.style.display = "inline-block"; }, 1000);
         }
 
-        function startParty() {
-            partyCanvas.style.display = "block"; let particles = [];
-            for(let i=0; i<200; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*6+2, c: `hsl(${Math.random()*360}, 100%, 50%)`, v: Math.random()*12+5 });
-            function anim() { pCtx.clearRect(0, 0, width, height); particles.forEach(p => { p.y += p.v; if (p.y > height) p.y = -10; pCtx.fillStyle = p.c; pCtx.fillRect(p.x, p.y, p.s, p.s); }); if (partyCanvas.style.display === "block") requestAnimationFrame(anim); }
-            anim();
-        }
-
+        function startParty() { partyCanvas.style.display = "block"; let particles = []; for(let i=0; i<200; i++) particles.push({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*6+2, c: `hsl(${Math.random()*360}, 100%, 50%)`, v: Math.random()*12+5 }); function anim() { pCtx.clearRect(0, 0, width, height); particles.forEach(p => { p.y += p.v; if (p.y > height) p.y = -10; pCtx.fillStyle = p.c; pCtx.fillRect(p.x, p.y, p.s, p.s); }); if (partyCanvas.style.display === "block") requestAnimationFrame(anim); } anim(); }
         function shakeScreen() { container.classList.add("shake"); setTimeout(() => container.classList.remove("shake"), 200); }
-
         window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+
         canvas.addEventListener('mousedown', (e) => {
             initAudio();
             if (!gameActive) return;
@@ -274,12 +254,10 @@
         restartBtn.addEventListener('click', () => { initAudio(); resetGame(); });
 
         function resetGame() {
-            score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0; isDoubleWin = false; wasNyan = false;
+            score = 0; multiplier = 1.0; timeLeft = 45; items = []; nyanMode = 0; magnetTime = 0; isDoubleWin = false; music.playbackRate = 1.0;
             goldenCapySpawns = [38, 25, 15]; goldenCapy = null; hasMixer = hasGlove = hasWand = false; weaponUI.innerHTML = "";
             partyCanvas.style.display = "none"; scoreEl.innerText = "0"; multEl.innerText = "1.0";
-            document.getElementById("statsDisplay").style.display = "none";
-            document.getElementById("instructions").style.display = "none";
-            document.getElementById("gamble-screen").style.display = "none";
+            document.getElementById("statsDisplay").style.display = "none"; document.getElementById("instructions").style.display = "none"; document.getElementById("gamble-screen").style.display = "none";
             restartBtn.style.display = "none"; menu.style.display = "none";
             hsEl.parentElement.classList.remove("highscore-flash");
             gameActive = true; lastTime = performance.now(); requestAnimationFrame(update);
